@@ -1,0 +1,21 @@
+{
+  "name": "com.tools.android-icon-generator",
+  "displayName": "Unity Android Icon Generator",
+  "version": "1.0.0",
+  "unity": "6000.0",
+  "description": "A professional Unity Editor extension for generating, customizing, previewing, exporting and automatically assigning Android application icons.",
+  "documentationUrl": "https://example.com/android-icon-generator/docs",
+  "changelogUrl": "https://example.com/android-icon-generator/changelog",
+  "keywords": [ "android", "icon", "adaptive icon", "launcher", "editor", "tools" ],
+  "author": { "name": "Android Icon Generator" },
+  "dependencies": {
+    "com.unity.modules.imageconversion": "1.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Example Logo",
+      "description": "A sample transparent logo PNG you can use to try the generator.",
+      "path": "Samples~/ExampleLogo"
+    }
+  ]
+}

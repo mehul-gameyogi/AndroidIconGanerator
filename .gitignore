@@ -1,0 +1,22 @@
+# OS
+[Dd]esktop.ini
+Thumbs.db
+.DS_Store
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln
+*.csproj
+
+# Unity
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
