@@ -227,9 +227,16 @@ namespace AndroidIconGenerator
             EditorGUILayout.Space(6f);
             SerializedProperty createFolder = so.FindProperty("createOutputFolder");
             EditorGUILayout.PropertyField(createFolder,
-                new GUIContent("Create Save Folder", "When enabled, creates Assets/GeneratedAndroidIcons. When disabled, saves directly in Assets."));
-            string outputPath = createFolder.boolValue ? AndroidIconSettings.DefaultOutputDirectory : "Assets";
+                new GUIContent("Create Save Folder", "When enabled, uses the selected save folder. When disabled, saves directly in Assets."));
+            SerializedProperty saveFolder = so.FindProperty("saveFolderDirectory");
+            string selectedFolder = string.IsNullOrWhiteSpace(saveFolder.stringValue)
+                ? AndroidIconSettings.DefaultOutputDirectory
+                : IconFolderManager.NormalizeOutputDirectory(saveFolder.stringValue);
+            string outputPath = createFolder.boolValue ? selectedFolder : "Assets";
+            EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField("Save Location", outputPath, EditorStyles.miniLabel);
+            if (GUILayout.Button("Browse...", GUILayout.Width(75f))) Defer(BrowseSaveLocation);
+            EditorGUILayout.EndHorizontal();
 
             using (new EditorGUI.DisabledScope(settings.sourceImage == null))
             {
@@ -429,10 +436,31 @@ namespace AndroidIconGenerator
             result.LogToConsole();
         }
 
+        private void BrowseSaveLocation()
+        {
+            string current = string.IsNullOrWhiteSpace(settings.saveFolderDirectory)
+                ? AndroidIconSettings.DefaultOutputDirectory
+                : settings.saveFolderDirectory;
+            string absolute = IconFolderManager.ToAbsolute(IconFolderManager.NormalizeOutputDirectory(current));
+            string start = Directory.Exists(absolute) ? absolute : Application.dataPath;
+            string chosen = EditorUtility.OpenFolderPanel("Choose icon save location", start, string.Empty);
+            if (string.IsNullOrEmpty(chosen)) return;
+
+            Undo.RecordObject(settings, "Change Icon Save Location");
+            settings.saveFolderDirectory = IconFolderManager.NormalizeOutputDirectory(chosen);
+            settings.createOutputFolder = true;
+            UpdateOutputDirectory();
+            so.Update();
+            IconGeneratorPreferences.Save(settings);
+            Repaint();
+        }
+
         private void UpdateOutputDirectory()
         {
+            if (string.IsNullOrWhiteSpace(settings.saveFolderDirectory))
+                settings.saveFolderDirectory = AndroidIconSettings.DefaultOutputDirectory;
             settings.outputDirectory = settings.createOutputFolder
-                ? AndroidIconSettings.DefaultOutputDirectory
+                ? IconFolderManager.NormalizeOutputDirectory(settings.saveFolderDirectory)
                 : "Assets";
         }
     }

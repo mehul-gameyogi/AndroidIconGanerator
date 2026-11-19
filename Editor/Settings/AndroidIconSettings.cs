@@ -68,6 +68,7 @@ namespace AndroidIconGenerator
 
         // Export
         public bool createOutputFolder = true;
+        public string saveFolderDirectory = DefaultOutputDirectory;
         public string outputDirectory = DefaultOutputDirectory;
         public bool includeLdpi = true;
 
