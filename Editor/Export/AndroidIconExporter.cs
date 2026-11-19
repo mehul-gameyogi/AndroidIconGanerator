@@ -41,18 +41,16 @@ namespace AndroidIconGenerator
             var plan = new List<GeneratedIconFile>();
             foreach (IconType type in types)
             {
-                foreach (AndroidDensity d in IconSpecs.Densities(s.includeLdpi))
+                AndroidDensity d = IconSpecs.BestFitDensity;
+                string path = IconFolderManager.GetFilePath(s.outputDirectory, type, d);
+                plan.Add(new GeneratedIconFile
                 {
-                    string path = IconFolderManager.GetFilePath(s.outputDirectory, type, d);
-                    plan.Add(new GeneratedIconFile
-                    {
-                        Type = type,
-                        Density = d,
-                        Size = IconSpecs.GetSize(type, d),
-                        Path = path,
-                        Exists = File.Exists(IconFolderManager.ToAbsolute(path)),
-                    });
-                }
+                    Type = type,
+                    Density = d,
+                    Size = IconSpecs.BestFitSize(type),
+                    Path = path,
+                    Exists = File.Exists(IconFolderManager.ToAbsolute(path)),
+                });
             }
             return plan;
         }

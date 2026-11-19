@@ -25,8 +25,7 @@ namespace AndroidIconGenerator
         private ExportResult lastExport;
         private Vector2 leftScroll, rightScroll;
 
-        private bool foldSource = true, foldConfig = true, foldLegacy = true, foldRound = true,
-                     foldForeground = true, foldBackground = true, foldExport = true, foldPlayer = true;
+        private bool foldSource = true, foldPlayer = true;
 
         // ------------------------------------------------------------------------------------------------
         // Entry points
@@ -91,7 +90,11 @@ namespace AndroidIconGenerator
 
         private void EnsureReady()
         {
-            if (settings == null) settings = IconGeneratorPreferences.LoadOrCreate();
+            if (settings == null)
+            {
+                settings = IconGeneratorPreferences.LoadOrCreate();
+                settings.outputDirectory = AndroidIconSettings.DefaultOutputDirectory;
+            }
             if (so == null || so.targetObject == null) so = new SerializedObject(settings);
             if (previews == null) previews = new IconPreviewRenderer();
             if (sourceSet == null) { ReloadSources(true); RefreshPreviews(); }
@@ -156,8 +159,7 @@ namespace AndroidIconGenerator
             EditorGUILayout.BeginHorizontal();
             leftScroll = EditorGUILayout.BeginScrollView(leftScroll);
             DrawSourceSection();
-            DrawConfigurationSection();
-            DrawExportSection();
+            DrawGenerationActions();
             DrawPlayerSettingsSection();
             DrawReportSection();
             EditorGUILayout.EndScrollView();
@@ -177,8 +179,6 @@ namespace AndroidIconGenerator
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             GUILayout.Label("Unity Android Icon Generator", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Validate", EditorStyles.toolbarButton, GUILayout.Width(70))) Defer(RunValidation);
-            if (GUILayout.Button("Reset Configuration", EditorStyles.toolbarButton, GUILayout.Width(130))) Defer(ResetConfiguration);
             EditorGUILayout.EndHorizontal();
         }
 
@@ -215,171 +215,35 @@ namespace AndroidIconGenerator
                 }
                 else if (settings.sourceImage == null)
                 {
-                    EditorGUILayout.HelpBox("Assign or import a PNG/JPG image (1024x1024 recommended, transparent background works best).", MessageType.Info);
+                    EditorGUILayout.HelpBox("Assign or import a PNG/JPG image (at least 432x432 recommended; transparent background works best).", MessageType.Info);
                 }
             }
             IconEditorGUI.EndSection();
         }
 
-        // ---- Section 2 + 3: Icon configuration & image controls --------------------------------------------
-
-        private void DrawConfigurationSection()
+        private void DrawGenerationActions()
         {
-            IconEditorGUI.Section(ref foldConfig, "2. Icon Configuration  (3. Image Controls are inside each panel)");
-            if (foldConfig)
+            EditorGUILayout.Space(6f);
+            using (new EditorGUI.DisabledScope(settings.sourceImage == null))
             {
-                DrawLegacyPanel();
-                DrawRoundPanel();
-                DrawForegroundPanel();
-                DrawBackgroundPanel();
+                if (GUILayout.Button("Generate Icons", GUILayout.Height(32))) Defer(Generate);
             }
-            IconEditorGUI.EndSection();
+            EditorGUILayout.LabelField("Adaptive foreground/background: 432 x 432    Legacy/round: 192 x 192", EditorStyles.miniLabel);
+
+            if (lastExport != null)
+            {
+                MessageType type = lastExport.Failed > 0 ? MessageType.Error : lastExport.Cancelled ? MessageType.Warning : MessageType.Info;
+                EditorGUILayout.HelpBox(
+                    $"Last generation: {lastExport.Written} written, {lastExport.Skipped} skipped, {lastExport.Failed} failed.",
+                    type);
+            }
         }
 
-        private void DrawLegacyPanel()
-        {
-            IconEditorGUI.Section(ref foldLegacy, "Legacy Icon  (48dp, mdpi to xxxhdpi)");
-            if (foldLegacy)
-            {
-                EditorGUILayout.PropertyField(so.FindProperty("legacyEnabled"), new GUIContent("Generate Legacy Icon"));
-                using (new EditorGUI.DisabledScope(!settings.legacyEnabled))
-                {
-                    DrawPlacement(so.FindProperty("legacyPlacement"), 1f, FitMode.Fit);
-                    EditorGUILayout.PropertyField(so.FindProperty("legacyUseBackground"), new GUIContent("Background Color"));
-                    if (settings.legacyUseBackground)
-                        EditorGUILayout.PropertyField(so.FindProperty("legacyBackgroundColor"), new GUIContent("Color"));
-                }
-            }
-            IconEditorGUI.EndSection();
-        }
-
-        private void DrawRoundPanel()
-        {
-            IconEditorGUI.Section(ref foldRound, "Round Icon  (circular crop)");
-            if (foldRound)
-            {
-                EditorGUILayout.PropertyField(so.FindProperty("roundEnabled"), new GUIContent("Generate Round Icon"));
-                using (new EditorGUI.DisabledScope(!settings.roundEnabled))
-                {
-                    DrawPlacement(so.FindProperty("roundPlacement"), 0.8f, FitMode.Fit);
-                    EditorGUILayout.PropertyField(so.FindProperty("roundUseBackground"), new GUIContent("Background Color"));
-                    if (settings.roundUseBackground)
-                        EditorGUILayout.PropertyField(so.FindProperty("roundBackgroundColor"), new GUIContent("Color"));
-                }
-            }
-            IconEditorGUI.EndSection();
-        }
-
-        private void DrawForegroundPanel()
-        {
-            IconEditorGUI.Section(ref foldForeground, "Adaptive Foreground  (108dp layer)");
-            if (foldForeground)
-            {
-                EditorGUILayout.PropertyField(so.FindProperty("adaptiveForegroundEnabled"), new GUIContent("Generate Adaptive Foreground"));
-                using (new EditorGUI.DisabledScope(!settings.adaptiveForegroundEnabled))
-                {
-                    EditorGUILayout.PropertyField(so.FindProperty("foregroundImage"),
-                        new GUIContent("Foreground Image", "Optional. The source image is used when this is empty."));
-                    DrawPlacement(so.FindProperty("foregroundPlacement"), 1f, FitMode.Fit);
-                    EditorGUILayout.HelpBox("Scale 1.0 fits the artwork into the 66dp safe zone. The exported layer is never cropped to a mask.", MessageType.None);
-                }
-            }
-            IconEditorGUI.EndSection();
-        }
-
-        private void DrawBackgroundPanel()
-        {
-            IconEditorGUI.Section(ref foldBackground, "Adaptive Background  (108dp layer)");
-            if (foldBackground)
-            {
-                EditorGUILayout.PropertyField(so.FindProperty("adaptiveBackgroundEnabled"), new GUIContent("Generate Adaptive Background"));
-                using (new EditorGUI.DisabledScope(!settings.adaptiveBackgroundEnabled))
-                {
-                    EditorGUILayout.PropertyField(so.FindProperty("backgroundMode"), new GUIContent("Mode"));
-                    switch (settings.backgroundMode)
-                    {
-                        case BackgroundMode.Solid:
-                            EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Color"));
-                            break;
-                        case BackgroundMode.Gradient:
-                            EditorGUILayout.PropertyField(so.FindProperty("gradientColorA"), new GUIContent("Start Color"));
-                            EditorGUILayout.PropertyField(so.FindProperty("gradientColorB"), new GUIContent("End Color"));
-                            EditorGUILayout.Slider(so.FindProperty("gradientAngle"), 0f, 360f, new GUIContent("Angle"));
-                            break;
-                        default:
-                            EditorGUILayout.PropertyField(so.FindProperty("backgroundImage"), new GUIContent("Background Image"));
-                            EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Fallback Color"));
-                            DrawPlacement(so.FindProperty("backgroundPlacement"), 1f, FitMode.Fill);
-                            break;
-                    }
-                }
-            }
-            IconEditorGUI.EndSection();
-        }
-
-        private static void DrawPlacement(SerializedProperty placement, float defaultScale, FitMode defaultFit)
-        {
-            SerializedProperty scale = placement.FindPropertyRelative("scale");
-            SerializedProperty offsetX = placement.FindPropertyRelative("offsetX");
-            SerializedProperty offsetY = placement.FindPropertyRelative("offsetY");
-            SerializedProperty fit = placement.FindPropertyRelative("fit");
-
-            EditorGUILayout.LabelField("Image Controls", EditorStyles.miniBoldLabel);
-            EditorGUILayout.Slider(scale, 0.1f, 3f, new GUIContent("Scale"));
-            EditorGUILayout.Slider(offsetX, -0.5f, 0.5f, new GUIContent("Horizontal Position"));
-            EditorGUILayout.Slider(offsetY, -0.5f, 0.5f, new GUIContent("Vertical Position"));
-            EditorGUILayout.PropertyField(fit, new GUIContent("Crop Mode", "Fit keeps the whole image visible. Fill crops the image so it covers the area."));
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Reset Image Controls", GUILayout.Width(150)))
-            {
-                scale.floatValue = defaultScale; offsetX.floatValue = 0f; offsetY.floatValue = 0f;
-                fit.enumValueIndex = (int)defaultFit;
-            }
-            EditorGUILayout.EndHorizontal();
-        }
-
-        // ---- Section 5: Export ---------------------------------------------------------------------------
-
-        private void DrawExportSection()
-        {
-            IconEditorGUI.Section(ref foldExport, "5. Export Settings");
-            if (foldExport)
-            {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.PropertyField(so.FindProperty("outputDirectory"), new GUIContent("Output Directory"));
-                if (GUILayout.Button("Browse...", GUILayout.Width(70))) Defer(BrowseOutputDirectory);
-                if (GUILayout.Button("Reveal", GUILayout.Width(60))) Defer(RevealOutputDirectory);
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.PropertyField(so.FindProperty("includeLdpi"), new GUIContent("Include LDPI", "Also generates the 36px / 81px ldpi sizes that Unity exposes in Player Settings."));
-
-                string selected = string.Join(", ", AndroidIconExporter.SelectedTypes(settings).Select(IconSpecs.DisplayName).ToArray());
-                EditorGUILayout.LabelField("Selected types", string.IsNullOrEmpty(selected) ? "(none)" : selected, EditorStyles.miniLabel);
-
-                using (new EditorGUI.DisabledScope(settings.sourceImage == null && !(settings.adaptiveBackgroundEnabled && !settings.adaptiveForegroundEnabled)))
-                {
-                    EditorGUILayout.BeginHorizontal();
-                    if (GUILayout.Button("Generate All Icons", GUILayout.Height(28))) Defer(() => Generate(true));
-                    if (GUILayout.Button("Generate Selected Icons", GUILayout.Height(28))) Defer(() => Generate(false));
-                    EditorGUILayout.EndHorizontal();
-                }
-
-                if (lastExport != null)
-                {
-                    MessageType type = lastExport.Failed > 0 ? MessageType.Error : lastExport.Cancelled ? MessageType.Warning : MessageType.Info;
-                    EditorGUILayout.HelpBox(
-                        $"Last generation: {lastExport.Written} written, {lastExport.Skipped} skipped, {lastExport.Failed} failed.",
-                        type);
-                }
-            }
-            IconEditorGUI.EndSection();
-        }
-
-        // ---- Section 6: Player settings ------------------------------------------------------------------
+        // ---- Section 2: Player settings ------------------------------------------------------------------
 
         private void DrawPlayerSettingsSection()
         {
-            IconEditorGUI.Section(ref foldPlayer, "6. Unity Player Settings (Android)");
+            IconEditorGUI.Section(ref foldPlayer, "2. Unity Player Settings (Android)");
             if (foldPlayer)
             {
                 string unsupported = AndroidPlayerSettingsManager.UnsupportedReason();
@@ -388,16 +252,10 @@ namespace AndroidIconGenerator
                 EditorGUILayout.PropertyField(so.FindProperty("assignLegacy"), new GUIContent("Assign Legacy Icons"));
                 EditorGUILayout.PropertyField(so.FindProperty("assignRound"), new GUIContent("Assign Round Icons"));
                 EditorGUILayout.PropertyField(so.FindProperty("assignAdaptive"), new GUIContent("Assign Adaptive Icons"));
-                EditorGUILayout.PropertyField(so.FindProperty("assignAfterGenerate"),
-                    new GUIContent("Automatically assign after generating", "You are still asked to confirm before Player Settings are changed."));
-
-                EditorGUILayout.BeginHorizontal();
                 using (new EditorGUI.DisabledScope(unsupported != null))
                 {
                     if (GUILayout.Button("Assign To Player Settings", GUILayout.Height(24))) Defer(() => AssignToPlayerSettings(true));
-                    if (GUILayout.Button("Validate Current Assignments", GUILayout.Height(24))) Defer(ValidateAssignments);
                 }
-                EditorGUILayout.EndHorizontal();
             }
             IconEditorGUI.EndSection();
         }
@@ -411,11 +269,11 @@ namespace AndroidIconGenerator
             IconEditorGUI.DrawReport(report);
         }
 
-        // ---- Section 4: Live preview -----------------------------------------------------------------------
+        // ---- Section 3: Live preview -----------------------------------------------------------------------
 
         private void DrawPreviewPane()
         {
-            GUILayout.Label("4. Live Preview", EditorStyles.boldLabel);
+            GUILayout.Label("3. Live Preview", EditorStyles.boldLabel);
             if (!previews.HasSource)
                 EditorGUILayout.HelpBox("Assign a source image to see the legacy, round and adaptive foreground previews. The adaptive background preview works without one.", MessageType.Info);
 
@@ -456,26 +314,6 @@ namespace AndroidIconGenerator
         // ------------------------------------------------------------------------------------------------
         // Actions
         // ------------------------------------------------------------------------------------------------
-
-        private void RunValidation()
-        {
-            ReloadSources(true);
-            report = IconValidator.ValidateSettings(settings, sourceSet);
-            report.LogToConsole(false);
-            IconLogger.Log(report.HasErrors ? Severity.Error : report.HasWarnings ? Severity.Warning : Severity.Success,
-                $"Validation finished: {report.Count(Severity.Error)} errors, {report.Count(Severity.Warning)} warnings.");
-        }
-
-        private void ResetConfiguration()
-        {
-            if (!EditorUtility.DisplayDialog("Reset configuration",
-                    "Reset all icon settings to their defaults? Assigned images and the output folder are kept.", "Reset", "Cancel"))
-                return;
-            Undo.RecordObject(settings, "Reset Android Icon Settings");
-            settings.ResetConfiguration();
-            so.Update();
-            OnSettingsChanged();
-        }
 
         private void ClearSource()
         {
@@ -529,28 +367,13 @@ namespace AndroidIconGenerator
             SetSourceTexture(texture);
         }
 
-        private void BrowseOutputDirectory()
+        private void Generate()
         {
-            string start = Directory.Exists(IconFolderManager.ToAbsolute(settings.outputDirectory))
-                ? IconFolderManager.ToAbsolute(settings.outputDirectory) : Application.dataPath;
-            string chosen = EditorUtility.OpenFolderPanel("Choose output directory", start, string.Empty);
-            if (string.IsNullOrEmpty(chosen)) return;
-
-            Undo.RecordObject(settings, "Change Output Directory");
-            settings.outputDirectory = IconFolderManager.NormalizeOutputDirectory(chosen);
-            so.Update();
-            IconGeneratorPreferences.Save(settings);
-        }
-
-        private void RevealOutputDirectory()
-        {
-            string abs = IconFolderManager.ToAbsolute(IconFolderManager.NormalizeOutputDirectory(settings.outputDirectory));
-            if (Directory.Exists(abs)) EditorUtility.RevealInFinder(abs);
-            else EditorUtility.DisplayDialog("Folder not found", "The output directory does not exist yet. Generate the icons first.", "OK");
-        }
-
-        private void Generate(bool all)
-        {
+            // The streamlined workflow always generates every required icon type.
+            settings.legacyEnabled = true;
+            settings.roundEnabled = true;
+            settings.adaptiveForegroundEnabled = true;
+            settings.adaptiveBackgroundEnabled = true;
             ReloadSources(true);
             report = IconValidator.ValidateSettings(settings, sourceSet);
             if (report.HasErrors)
@@ -560,11 +383,10 @@ namespace AndroidIconGenerator
                 return;
             }
 
-            var types = all ? AndroidIconExporter.AllTypes() : AndroidIconExporter.SelectedTypes(settings);
-            var plan = AndroidIconExporter.BuildPlan(settings, types);
+            var plan = AndroidIconExporter.BuildPlan(settings, AndroidIconExporter.AllTypes());
             if (plan.Count == 0)
             {
-                report.Warning("Export", "No icon types are selected.", "Enable an icon type or use 'Generate All Icons'.");
+                report.Warning("Export", "No icon files were planned.", "Close and reopen the generator, then try again.");
                 return;
             }
 
@@ -584,8 +406,6 @@ namespace AndroidIconGenerator
             report.LogToConsole(false);
             IconLogger.Log(lastExport.Success ? Severity.Success : Severity.Error,
                 $"Generation finished: {lastExport.Written} written, {lastExport.Skipped} skipped, {lastExport.Failed} failed -> {settings.outputDirectory}");
-
-            if (lastExport.Success && settings.assignAfterGenerate) AssignToPlayerSettings(false);
         }
 
         private void AssignToPlayerSettings(bool reportFirst)
@@ -598,12 +418,6 @@ namespace AndroidIconGenerator
             ValidationReport result = AndroidPlayerSettingsManager.Assign(settings, settings.assignLegacy, settings.assignRound, settings.assignAdaptive);
             report.AddRange(result);
             result.LogToConsole();
-        }
-
-        private void ValidateAssignments()
-        {
-            report = PlayerSettingsValidator.Validate(settings);
-            report.LogToConsole();
         }
     }
 }

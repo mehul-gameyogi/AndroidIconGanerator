@@ -39,7 +39,7 @@ namespace AndroidIconGenerator
                             "Use a larger source image, ideally 1024x1024 or more.");
                     else if (w < RecommendedSourceSize || h < RecommendedSourceSize)
                         report.Warning("Source image", $"Image is {w}x{h}px. xxxhdpi adaptive icons are {RecommendedSourceSize}px, so they will look soft.",
-                            "Use a source of at least 512x512px (1024x1024 recommended).");
+                            $"Use a source of at least {RecommendedSourceSize}x{RecommendedSourceSize}px.");
                     else
                         report.Success("Source image", $"{w}x{h}px {TextureUtility.FormatName(path)} loaded.");
 
@@ -48,10 +48,6 @@ namespace AndroidIconGenerator
                             "Use a square image, or set the crop mode to Fill to crop it.");
                 }
             }
-
-            // --- selection ----------------------------------------------------------------------------------
-            if (!AndroidIconExporter.SelectedTypes(s).Any())
-                report.Warning("Configuration", "All icon types are disabled.", "Enable at least one icon type or use 'Generate All Icons'.");
 
             // --- adaptive -----------------------------------------------------------------------------------
             ImagePyramid fg = set?.ForegroundOrSource;

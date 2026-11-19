@@ -18,6 +18,12 @@ namespace AndroidIconGenerator
         public const float AdaptiveSafeDp = 66f;
         /// <summary>Legacy launcher icons are 48x48dp.</summary>
         public const float LauncherDp = 48f;
+        /// <summary>Single best-fit export used for legacy and round Player Settings slots.</summary>
+        public const int BestFitLauncherSize = 192;
+        /// <summary>Single best-fit export used for adaptive foreground and background layers.</summary>
+        public const int BestFitAdaptiveSize = 432;
+        /// <summary>The best-fit files use Android's xxxhdpi dimensions.</summary>
+        public const AndroidDensity BestFitDensity = AndroidDensity.Xxxhdpi;
 
         public static float Scale(AndroidDensity d)
         {
@@ -41,6 +47,11 @@ namespace AndroidIconGenerator
         {
             return (type == IconType.AdaptiveForeground || type == IconType.AdaptiveBackground)
                 ? AdaptiveSize(d) : LauncherSize(d);
+        }
+
+        public static int BestFitSize(IconType type)
+        {
+            return IsAdaptive(type) ? BestFitAdaptiveSize : BestFitLauncherSize;
         }
 
         public static bool IsAdaptive(IconType type)

@@ -2,7 +2,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0%2B-blue.svg)](https://unity.com/)
 
-An Editor-only Unity package that turns a single logo or icon asset into every required Android launcher icon format: **Legacy**, **Round**, and **Adaptive** (separate foreground and background layers). It provides live previews with mask guides, exports organized PNG assets for all densities, and automatically assigns them to Unity's Android Player Settings.
+An Editor-only Unity package that turns a single logo or icon asset into the best-fit Android launcher icon formats: **Legacy**, **Round**, and **Adaptive** (separate foreground and background layers). It provides live previews with mask guides, exports four optimized PNG assets, and assigns them to Unity's Android Player Settings.
 
 Open it directly in Unity from: **Tools > Android Icon Generator**
 
@@ -60,16 +60,13 @@ When you switch back to Unity, it will automatically download and resolve the de
   - **Legacy Icons** (48dp standard square / shaped)
   - **Round Icons** (circular crop for devices using round icons)
   - **Adaptive Icons** (108dp separate foreground & background layers)
-  - Full density support: **ldpi, mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi** (36px up to 432px).
-- **Customizable Layer Controls**:
-  - Independent scale, horizontal/vertical position, and crop modes (Fit/Fill).
-  - Background styling: solid color, two-color linear gradient with custom angle, or custom background texture.
+  - Best-fit output: **192x192** legacy/round and **432x432** adaptive foreground/background.
 - **Live Interactive Previews**:
   - Instant real-time preview without writing temporary files.
   - Interactive mask overlays: Circle, Squircle, Rounded Square.
   - Visual guides for **66dp Safe Zone** (green) and **72dp Visible Area** (yellow).
 - **Export & Asset Management**:
-  - Clean organized export structure in `Assets/GeneratedAndroidIcons` or any custom folder.
+  - Clean organized export structure in `Assets/GeneratedAndroidIcons`.
   - Safe overwrite verification with progress tracking.
 - **1-Click Player Settings Integration**:
   - Automatically assigns generated icons directly via `PlayerSettings.SetPlatformIcons`.
@@ -89,12 +86,9 @@ When you switch back to Unity, it will automatically download and resolve the de
 ## 🛠️ How to Use
 
 1. **Launch Window**: Open **Tools > Android Icon Generator** from the top menu bar.
-2. **Select Image**: Drag & drop your logo/icon texture (PNG or JPG) into the **Source Image** field, or click **Import / Replace Image...**. A high-resolution transparent PNG (1024x1024 recommended) works best.
-3. **Configure Layers**:
-   - Adjust scale and positioning to keep important artwork inside the green 66dp safe zone guide.
-   - Choose your background type (Solid Color, Gradient, or custom Image).
-4. **Generate Icons**: Choose your destination folder (e.g. `Assets/GeneratedAndroidIcons`) and click **Generate All Icons**.
-5. **Assign to Settings**: Click **Assign To Player Settings** to apply your new icons across all densities automatically!
+2. **Select Image**: Drag & drop your logo/icon texture (PNG or JPG) into the **Source Image** field, or click **Import / Replace Image...**. A transparent PNG of at least 432x432 works best.
+3. **Generate Icons**: Click **Generate Icons**. Input and output validation runs automatically.
+4. **Assign to Settings**: Click **Assign To Player Settings**. Assigned slots are verified automatically.
 
 ---
 
