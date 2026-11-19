@@ -93,7 +93,7 @@ namespace AndroidIconGenerator
             if (settings == null)
             {
                 settings = IconGeneratorPreferences.LoadOrCreate();
-                settings.outputDirectory = AndroidIconSettings.DefaultOutputDirectory;
+                UpdateOutputDirectory();
             }
             if (so == null || so.targetObject == null) so = new SerializedObject(settings);
             if (previews == null) previews = new IconPreviewRenderer();
@@ -122,6 +122,7 @@ namespace AndroidIconGenerator
 
         private void OnSettingsChanged()
         {
+            UpdateOutputDirectory();
             ReloadSources();
             RefreshPreviews();
             IconGeneratorPreferences.Save(settings);
@@ -224,6 +225,12 @@ namespace AndroidIconGenerator
         private void DrawGenerationActions()
         {
             EditorGUILayout.Space(6f);
+            SerializedProperty createFolder = so.FindProperty("createOutputFolder");
+            EditorGUILayout.PropertyField(createFolder,
+                new GUIContent("Create Save Folder", "When enabled, creates Assets/GeneratedAndroidIcons. When disabled, saves directly in Assets."));
+            string outputPath = createFolder.boolValue ? AndroidIconSettings.DefaultOutputDirectory : "Assets";
+            EditorGUILayout.LabelField("Save Location", outputPath, EditorStyles.miniLabel);
+
             using (new EditorGUI.DisabledScope(settings.sourceImage == null))
             {
                 if (GUILayout.Button("Generate Icons", GUILayout.Height(32))) Defer(Generate);
@@ -370,6 +377,7 @@ namespace AndroidIconGenerator
         private void Generate()
         {
             // The streamlined workflow always generates every required icon type.
+            UpdateOutputDirectory();
             settings.legacyEnabled = true;
             settings.roundEnabled = true;
             settings.adaptiveForegroundEnabled = true;
@@ -410,6 +418,7 @@ namespace AndroidIconGenerator
 
         private void AssignToPlayerSettings(bool reportFirst)
         {
+            UpdateOutputDirectory();
             if (reportFirst) { report = new ValidationReport(); }
             if (!EditorUtility.DisplayDialog("Assign icons to Android Player Settings",
                     "This changes the icon slots in Project Settings > Player > Android > Icon.\n\nContinue?", "Assign", "Cancel"))
@@ -418,6 +427,13 @@ namespace AndroidIconGenerator
             ValidationReport result = AndroidPlayerSettingsManager.Assign(settings, settings.assignLegacy, settings.assignRound, settings.assignAdaptive);
             report.AddRange(result);
             result.LogToConsole();
+        }
+
+        private void UpdateOutputDirectory()
+        {
+            settings.outputDirectory = settings.createOutputFolder
+                ? AndroidIconSettings.DefaultOutputDirectory
+                : "Assets";
         }
     }
 }

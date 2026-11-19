@@ -67,6 +67,7 @@ namespace AndroidIconGenerator
         public ImagePlacement backgroundPlacement = new ImagePlacement(1f) { fit = FitMode.Fill };
 
         // Export
+        public bool createOutputFolder = true;
         public string outputDirectory = DefaultOutputDirectory;
         public bool includeLdpi = true;
 

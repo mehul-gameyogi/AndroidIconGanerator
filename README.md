@@ -66,7 +66,8 @@ When you switch back to Unity, it will automatically download and resolve the de
   - Interactive mask overlays: Circle, Squircle, Rounded Square.
   - Visual guides for **66dp Safe Zone** (green) and **72dp Visible Area** (yellow).
 - **Export & Asset Management**:
-  - Clean organized export structure in `Assets/GeneratedAndroidIcons`.
+  - All four PNGs are saved together in one folder.
+  - Optional `Assets/GeneratedAndroidIcons` save folder; disable it to save directly in `Assets`.
   - Safe overwrite verification with progress tracking.
 - **1-Click Player Settings Integration**:
   - Automatically assigns generated icons directly via `PlayerSettings.SetPlatformIcons`.
@@ -87,7 +88,7 @@ When you switch back to Unity, it will automatically download and resolve the de
 
 1. **Launch Window**: Open **Tools > Android Icon Generator** from the top menu bar.
 2. **Select Image**: Drag & drop your logo/icon texture (PNG or JPG) into the **Source Image** field, or click **Import / Replace Image...**. A transparent PNG of at least 432x432 works best.
-3. **Generate Icons**: Click **Generate Icons**. Input and output validation runs automatically.
+3. **Generate Icons**: Choose whether to create the save folder, then click **Generate Icons**. Input and output validation runs automatically.
 4. **Assign to Settings**: Click **Assign To Player Settings**. Assigned slots are verified automatically.
 
 ---

@@ -32,18 +32,6 @@ namespace AndroidIconGenerator
             return ProjectRoot + "/" + p;
         }
 
-        /// <summary>Sub folder (relative to the output directory) holding a given icon.</summary>
-        public static string SubFolder(IconType type, AndroidDensity density)
-        {
-            switch (type)
-            {
-                case IconType.Legacy: return "Legacy/" + IconSpecs.FolderName(density);
-                case IconType.Round: return "Round/" + IconSpecs.FolderName(density);
-                case IconType.AdaptiveForeground: return "Adaptive/Foreground";
-                default: return "Adaptive/Background";
-            }
-        }
-
         public static string FileName(IconType type, AndroidDensity density)
         {
             int size = IconSpecs.GetSize(type, density);
@@ -60,7 +48,7 @@ namespace AndroidIconGenerator
         /// <summary>Project-relative (or absolute, when outside the project) path of a generated file.</summary>
         public static string GetFilePath(string outputDirectory, IconType type, AndroidDensity density)
         {
-            return NormalizeOutputDirectory(outputDirectory) + "/" + SubFolder(type, density) + "/" + FileName(type, density);
+            return NormalizeOutputDirectory(outputDirectory) + "/" + FileName(type, density);
         }
 
         public static void EnsureDirectoryFor(string filePath)
