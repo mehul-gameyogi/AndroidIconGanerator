@@ -73,7 +73,7 @@ namespace AndroidIconGenerator
                 }
                 default:
                 {
-                    float r = RoundedSquareRadius * halfExtent * 2f;
+                    float r = shape == MaskShape.Square ? 0f : RoundedSquareRadius * halfExtent * 2f;
                     float qx = Mathf.Abs(px) - (halfExtent - r);
                     float qy = Mathf.Abs(py) - (halfExtent - r);
                     float outside = Mathf.Sqrt(Mathf.Max(qx, 0f) * Mathf.Max(qx, 0f) + Mathf.Max(qy, 0f) * Mathf.Max(qy, 0f));

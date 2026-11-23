@@ -5,7 +5,8 @@ namespace AndroidIconGenerator
 {
     public enum FitMode { Fit, Fill }
     public enum BackgroundMode { Solid, Gradient, Image }
-    public enum MaskShape { Circle, Squircle, RoundedSquare }
+    public enum MaskShape { Circle, Squircle, RoundedSquare, Square }
+    public enum LayerTab { Foreground, Background, Options }
 
     /// <summary>Scale / position / crop of an image inside its layer.</summary>
     [Serializable]
@@ -57,6 +58,7 @@ namespace AndroidIconGenerator
 
         // Adaptive foreground (scale 1 == fits the 66dp safe zone)
         public ImagePlacement foregroundPlacement = new ImagePlacement(1f);
+        public bool foregroundTrim;                // crop transparent borders before scaling
 
         // Adaptive background
         public BackgroundMode backgroundMode = BackgroundMode.Solid;
@@ -80,6 +82,9 @@ namespace AndroidIconGenerator
 
         // Preview-only UI state
         public bool showSafeZone = true;
+        public bool showGrid;
+        public AndroidDensity previewDensity = AndroidDensity.Xhdpi;
+        public LayerTab activeTab = LayerTab.Foreground;
         public MaskShape launcherMask = MaskShape.Circle;
 
         public static AndroidIconSettings CreateDefault()

@@ -19,23 +19,43 @@ namespace AndroidIconGenerator
             if (showGuides && Event.current.type == EventType.Repaint) DrawGuides(rect);
         }
 
-        public static void DrawGuides(Rect rect)
+        /// <summary>Draws a dp grid (every <paramref name="stepDp"/>) over a rect that represents <paramref name="canvasDp"/>.</summary>
+        public static void DrawGrid(Rect rect, float canvasDp, float stepDp = 6f)
         {
-            float pxPerDp = rect.width / IconSpecs.AdaptiveCanvasDp;
+            if (Event.current.type != EventType.Repaint) return;
+            float pxPerDp = rect.width / canvasDp;
+            Color c = new Color(1f, 1f, 1f, 0.35f);
+            for (float d = stepDp; d < canvasDp - 0.01f; d += stepDp)
+            {
+                float p = d * pxPerDp;
+                EditorGUI.DrawRect(new Rect(rect.x + p, rect.y, 1f, rect.height), c);
+                EditorGUI.DrawRect(new Rect(rect.x, rect.y + p, rect.width, 1f), c);
+            }
+        }
+
+        /// <summary>
+        /// Guides over a rect that represents <paramref name="canvasDp"/> (108 for a full layer, 72 for a masked tile).
+        /// </summary>
+        public static void DrawGuides(Rect rect, float canvasDp = IconSpecs.AdaptiveCanvasDp)
+        {
+            float pxPerDp = rect.width / canvasDp;
             Vector2 center = rect.center;
 
             Handles.BeginGUI();
             Color old = Handles.color;
 
-            // 72dp visible area (what the launcher can reveal)
-            float half = IconSpecs.AdaptiveVisibleDp * 0.5f * pxPerDp;
-            Handles.color = new Color(1f, 0.9f, 0.2f, 0.9f);
-            Handles.DrawAAPolyLine(1.5f, new Vector3[]
+            // 72dp visible area (what the launcher can reveal); redundant when the rect already is that area
+            if (canvasDp > IconSpecs.AdaptiveVisibleDp + 0.01f)
             {
-                new Vector3(center.x - half, center.y - half), new Vector3(center.x + half, center.y - half),
-                new Vector3(center.x + half, center.y + half), new Vector3(center.x - half, center.y + half),
-                new Vector3(center.x - half, center.y - half),
-            });
+                float half = IconSpecs.AdaptiveVisibleDp * 0.5f * pxPerDp;
+                Handles.color = new Color(1f, 0.9f, 0.2f, 0.9f);
+                Handles.DrawAAPolyLine(1.5f, new Vector3[]
+                {
+                    new Vector3(center.x - half, center.y - half), new Vector3(center.x + half, center.y - half),
+                    new Vector3(center.x + half, center.y + half), new Vector3(center.x - half, center.y + half),
+                    new Vector3(center.x - half, center.y - half),
+                });
+            }
 
             // 66dp safe-zone circle
             Handles.color = new Color(0.2f, 1f, 0.5f, 0.95f);

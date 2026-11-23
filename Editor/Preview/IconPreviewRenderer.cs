@@ -16,7 +16,8 @@ namespace AndroidIconGenerator
         public Texture2D Round;
         public Texture2D Foreground;
         public Texture2D Background;
-        public readonly Texture2D[] Combined = new Texture2D[3];
+        public Texture2D FullBleed;
+        public readonly Texture2D[] Combined = new Texture2D[Enum.GetValues(typeof(MaskShape)).Length];
 
         public bool HasSource { get; private set; }
 
@@ -33,6 +34,7 @@ namespace AndroidIconGenerator
             ImageBuffer bg = AdaptiveIconGenerator.RenderBackground(s, set, AdaptiveCanvasSize);
             TextureUtility.UpdateTexture(ref Foreground, fg);
             TextureUtility.UpdateTexture(ref Background, bg);
+            TextureUtility.UpdateTexture(ref FullBleed, AdaptiveIconGenerator.ComposeFullBleed(fg, bg));
 
             foreach (MaskShape shape in Enum.GetValues(typeof(MaskShape)))
             {
@@ -47,6 +49,8 @@ namespace AndroidIconGenerator
             TextureUtility.SafeDestroy(Round);
             TextureUtility.SafeDestroy(Foreground);
             TextureUtility.SafeDestroy(Background);
+            TextureUtility.SafeDestroy(FullBleed);
+            FullBleed = null;
             for (int i = 0; i < Combined.Length; i++)
             {
                 TextureUtility.SafeDestroy(Combined[i]);

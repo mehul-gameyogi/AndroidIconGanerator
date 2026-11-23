@@ -63,26 +63,40 @@ namespace AndroidIconGenerator
                     if (cover <= 0f) { output.Pixels[y * crop + x] = new Color32(0, 0, 0, 0); continue; }
 
                     int si = (y + offset) * size + (x + offset);
-                    Color32 bg = background != null ? background.Pixels[si] : new Color32(0, 0, 0, 0);
-                    Color32 fg = foreground != null ? foreground.Pixels[si] : new Color32(0, 0, 0, 0);
-                    float fa = fg.a / 255f;
-                    float ba = bg.a / 255f;
-                    float oa = fa + ba * (1f - fa);
-                    float r = 0, g = 0, b = 0;
-                    if (oa > 0f)
-                    {
-                        r = (fg.r * fa + bg.r * ba * (1f - fa)) / oa;
-                        g = (fg.g * fa + bg.g * ba * (1f - fa)) / oa;
-                        b = (fg.b * fa + bg.b * ba * (1f - fa)) / oa;
-                    }
-                    output.Pixels[y * crop + x] = new Color32(
-                        (byte)Mathf.Clamp(Mathf.RoundToInt(r), 0, 255),
-                        (byte)Mathf.Clamp(Mathf.RoundToInt(g), 0, 255),
-                        (byte)Mathf.Clamp(Mathf.RoundToInt(b), 0, 255),
-                        (byte)Mathf.Clamp(Mathf.RoundToInt(oa * cover * 255f), 0, 255));
+                    output.Pixels[y * crop + x] = Blend(foreground, background, si, cover);
                 }
             }
             return output;
+        }
+
+        /// <summary>Foreground over background on the whole 108dp canvas, with no mask ("full bleed layers").</summary>
+        public static ImageBuffer ComposeFullBleed(ImageBuffer foreground, ImageBuffer background)
+        {
+            int size = background != null ? background.Width : foreground.Width;
+            var output = new ImageBuffer(size, size);
+            for (int i = 0; i < output.Pixels.Length; i++) output.Pixels[i] = Blend(foreground, background, i, 1f);
+            return output;
+        }
+
+        private static Color32 Blend(ImageBuffer foreground, ImageBuffer background, int index, float cover)
+        {
+            Color32 bg = background != null ? background.Pixels[index] : new Color32(0, 0, 0, 0);
+            Color32 fg = foreground != null ? foreground.Pixels[index] : new Color32(0, 0, 0, 0);
+            float fa = fg.a / 255f;
+            float ba = bg.a / 255f;
+            float oa = fa + ba * (1f - fa);
+            float r = 0, g = 0, b = 0;
+            if (oa > 0f)
+            {
+                r = (fg.r * fa + bg.r * ba * (1f - fa)) / oa;
+                g = (fg.g * fa + bg.g * ba * (1f - fa)) / oa;
+                b = (fg.b * fa + bg.b * ba * (1f - fa)) / oa;
+            }
+            return new Color32(
+                (byte)Mathf.Clamp(Mathf.RoundToInt(r), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(g), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(b), 0, 255),
+                (byte)Mathf.Clamp(Mathf.RoundToInt(oa * cover * 255f), 0, 255));
         }
     }
 }

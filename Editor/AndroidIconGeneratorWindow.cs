@@ -12,7 +12,10 @@ namespace AndroidIconGenerator
     /// </summary>
     public sealed class AndroidIconGeneratorWindow : EditorWindow
     {
-        private const float PreviewPaneWidth = 400f;
+        private const float LeftPaneWidth = 430f;
+        private static readonly string[] TabNames = { "Foreground Layer", "Background Layer", "Options" };
+        private static readonly string[] BackgroundModeNames = { "Color", "Gradient", "Image" };
+        private static readonly string[] YesNo = { "Yes", "No" };
         private const string ImportFolder = "Assets/AndroidIconSource";
 
         [SerializeField] private AndroidIconSettings settings;
@@ -25,7 +28,7 @@ namespace AndroidIconGenerator
         private ExportResult lastExport;
         private Vector2 leftScroll, rightScroll;
 
-        private bool foldSource = true, foldPlayer = true;
+        private bool foldPlayer = true;
 
         // ------------------------------------------------------------------------------------------------
         // Entry points
@@ -158,19 +161,29 @@ namespace AndroidIconGenerator
             DrawToolbar();
 
             EditorGUILayout.BeginHorizontal();
+
+            // Left: configuration (Asset Studio style tabs) + output actions
+            EditorGUILayout.BeginVertical(GUILayout.Width(LeftPaneWidth));
             leftScroll = EditorGUILayout.BeginScrollView(leftScroll);
-            DrawSourceSection();
+            DrawHeaderFields();
+            DrawTabs();
             DrawGenerationActions();
             DrawPlayerSettingsSection();
             DrawReportSection();
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
 
-            if (so.ApplyModifiedProperties()) OnSettingsChanged();
-
-            rightScroll = EditorGUILayout.BeginScrollView(rightScroll, GUILayout.Width(PreviewPaneWidth));
+            // Right: preview
+            EditorGUILayout.BeginVertical();
+            DrawPreviewHeader();
+            rightScroll = EditorGUILayout.BeginScrollView(rightScroll);
             DrawPreviewPane();
             EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+
             EditorGUILayout.EndHorizontal();
+
+            if (so.ApplyModifiedProperties()) OnSettingsChanged();
 
             if (so.ApplyModifiedProperties()) IconGeneratorPreferences.Save(settings);
         }
@@ -183,43 +196,136 @@ namespace AndroidIconGenerator
             EditorGUILayout.EndHorizontal();
         }
 
-        // ---- Section 1: Source image ---------------------------------------------------------------------
+        // ---- Image Asset Studio style configuration -------------------------------------------------------
 
-        private void DrawSourceSection()
+        private void DrawHeaderFields()
         {
-            IconEditorGUI.Section(ref foldSource, "1. Source Image");
-            if (foldSource)
+            using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.PropertyField(so.FindProperty("sourceImage"), new GUIContent("Source Image", "PNG or JPG texture used for every icon."));
-
-                EditorGUILayout.BeginHorizontal();
-                if (GUILayout.Button("Import / Replace Image...", GUILayout.Height(22))) Defer(ImportSourceImage);
-                using (new EditorGUI.DisabledScope(settings.sourceImage == null))
-                    if (GUILayout.Button("Clear", GUILayout.Width(70), GUILayout.Height(22))) Defer(ClearSource);
-                EditorGUILayout.EndHorizontal();
-
-                if (sourceSet != null && sourceSet.Source != null)
-                {
-                    string path = AssetDatabase.GetAssetPath(settings.sourceImage);
-                    long bytes = File.Exists(path) ? new FileInfo(path).Length : 0;
-                    EditorGUILayout.BeginHorizontal();
-                    Rect thumb = GUILayoutUtility.GetRect(96, 96, GUILayout.ExpandWidth(false));
-                    IconEditorGUI.DrawTextureOnChecker(thumb, sourceThumb);
-                    EditorGUILayout.BeginVertical();
-                    EditorGUILayout.LabelField("Dimensions", sourceSet.Source.Width + " x " + sourceSet.Source.Height + " px");
-                    EditorGUILayout.LabelField("Format", TextureUtility.FormatName(path));
-                    EditorGUILayout.LabelField("Transparency", sourceSet.Source.Level0.HasTransparency() ? "Yes" : "No (fully opaque)");
-                    if (bytes > 0) EditorGUILayout.LabelField("File size", (bytes / 1024f).ToString("0.#") + " KB");
-                    EditorGUILayout.LabelField("Path", path, EditorStyles.miniLabel);
-                    EditorGUILayout.EndVertical();
-                    EditorGUILayout.EndHorizontal();
-                }
-                else if (settings.sourceImage == null)
-                {
-                    EditorGUILayout.HelpBox("Assign or import a PNG/JPG image (at least 432x432 recommended; transparent background works best).", MessageType.Info);
-                }
+                EditorGUILayout.Popup("Icon type", 0, new[] { "Launcher Icons (Adaptive and Legacy)" });
+                EditorGUILayout.TextField("Name", "ic_launcher");
             }
-            IconEditorGUI.EndSection();
+            EditorGUILayout.Space(4f);
+        }
+
+        private void DrawTabs()
+        {
+            SerializedProperty tab = so.FindProperty("activeTab");
+            int selected = GUILayout.Toolbar(tab.enumValueIndex, TabNames, GUILayout.Height(24f));
+            if (selected != tab.enumValueIndex) tab.enumValueIndex = selected;
+
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            switch (settings.activeTab)
+            {
+                case LayerTab.Foreground: DrawForegroundTab(); break;
+                case LayerTab.Background: DrawBackgroundTab(); break;
+                default: DrawOptionsTab(); break;
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawForegroundTab()
+        {
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.TextField("Layer name", "ic_launcher_foreground");
+
+            GUILayout.Label("Source Asset", EditorStyles.boldLabel);
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.Popup("Asset type", 0, new[] { "Image" });
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(so.FindProperty("sourceImage"), new GUIContent("Path", "PNG or JPG texture used for every icon."));
+            if (GUILayout.Button(EditorGUIUtility.IconContent("Folder Icon"), GUILayout.Width(28f), GUILayout.Height(18f)))
+                Defer(ImportSourceImage);
+            using (new EditorGUI.DisabledScope(settings.sourceImage == null))
+                if (GUILayout.Button("Clear", GUILayout.Width(48f))) Defer(ClearSource);
+            EditorGUILayout.EndHorizontal();
+
+            if (sourceSet != null && sourceSet.Source != null)
+            {
+                string path = AssetDatabase.GetAssetPath(settings.sourceImage);
+                EditorGUILayout.LabelField(
+                    sourceSet.Source.Width + " x " + sourceSet.Source.Height + " px, " + TextureUtility.FormatName(path)
+                    + (sourceSet.Source.Level0.HasTransparency() ? ", transparent" : ", opaque"),
+                    EditorStyles.miniLabel);
+            }
+            else if (settings.sourceImage == null)
+            {
+                EditorGUILayout.HelpBox("Assign or import a PNG/JPG image (at least 432x432 recommended; transparent background works best).", MessageType.Info);
+            }
+
+            EditorGUILayout.Space(4f);
+            GUILayout.Label("Scaling", EditorStyles.boldLabel);
+            DrawYesNo("Trim", so.FindProperty("foregroundTrim"));
+            DrawResizeSlider("Resize", so.FindProperty("foregroundPlacement.scale"));
+        }
+
+        private void DrawBackgroundTab()
+        {
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.TextField("Layer name", "ic_launcher_background");
+
+            GUILayout.Label("Source Asset", EditorStyles.boldLabel);
+            SerializedProperty mode = so.FindProperty("backgroundMode");
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel("Asset type");
+            int selected = GUILayout.Toolbar(mode.enumValueIndex, BackgroundModeNames);
+            if (selected != mode.enumValueIndex) mode.enumValueIndex = selected;
+            EditorGUILayout.EndHorizontal();
+
+            switch (settings.backgroundMode)
+            {
+                case BackgroundMode.Gradient:
+                    EditorGUILayout.PropertyField(so.FindProperty("gradientColorA"), new GUIContent("Start color"));
+                    EditorGUILayout.PropertyField(so.FindProperty("gradientColorB"), new GUIContent("End color"));
+                    SerializedProperty angle = so.FindProperty("gradientAngle");
+                    angle.floatValue = EditorGUILayout.Slider("Angle", angle.floatValue, 0f, 360f);
+                    break;
+                case BackgroundMode.Image:
+                    EditorGUILayout.PropertyField(so.FindProperty("backgroundImage"), new GUIContent("Path"));
+                    EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Fallback color"));
+                    EditorGUILayout.Space(4f);
+                    GUILayout.Label("Scaling", EditorStyles.boldLabel);
+                    DrawResizeSlider("Resize", so.FindProperty("backgroundPlacement.scale"));
+                    break;
+                default:
+                    EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Color"));
+                    break;
+            }
+        }
+
+        private void DrawOptionsTab()
+        {
+            GUILayout.Label("Legacy Icon (API 25 and below)", EditorStyles.boldLabel);
+            DrawResizeSlider("Resize", so.FindProperty("legacyPlacement.scale"));
+            EditorGUILayout.PropertyField(so.FindProperty("legacyUseBackground"), new GUIContent("Fill background"));
+            if (settings.legacyUseBackground)
+                EditorGUILayout.PropertyField(so.FindProperty("legacyBackgroundColor"), new GUIContent("Background color"));
+
+            EditorGUILayout.Space(6f);
+            GUILayout.Label("Round Icon", EditorStyles.boldLabel);
+            DrawResizeSlider("Resize", so.FindProperty("roundPlacement.scale"));
+            EditorGUILayout.PropertyField(so.FindProperty("roundUseBackground"), new GUIContent("Fill background"));
+            if (settings.roundUseBackground)
+                EditorGUILayout.PropertyField(so.FindProperty("roundBackgroundColor"), new GUIContent("Background color"));
+        }
+
+        /// <summary>Resize slider shown as a percentage (100% = default fit), stored as a 0..4 scale factor.</summary>
+        private static void DrawResizeSlider(string label, SerializedProperty scale)
+        {
+            EditorGUI.BeginChangeCheck();
+            int percent = EditorGUILayout.IntSlider(label, Mathf.RoundToInt(scale.floatValue * 100f), 1, 400);
+            if (EditorGUI.EndChangeCheck()) scale.floatValue = percent / 100f;
+        }
+
+        private static void DrawYesNo(string label, SerializedProperty flag)
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(label);
+            int selected = GUILayout.Toolbar(flag.boolValue ? 0 : 1, YesNo, GUILayout.Width(100f));
+            flag.boolValue = selected == 0;
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawGenerationActions()
@@ -257,7 +363,7 @@ namespace AndroidIconGenerator
 
         private void DrawPlayerSettingsSection()
         {
-            IconEditorGUI.Section(ref foldPlayer, "2. Unity Player Settings (Android)");
+            IconEditorGUI.Section(ref foldPlayer, "Unity Player Settings (Android)");
             if (foldPlayer)
             {
                 string unsupported = AndroidPlayerSettingsManager.UnsupportedReason();
@@ -285,44 +391,40 @@ namespace AndroidIconGenerator
 
         // ---- Section 3: Live preview -----------------------------------------------------------------------
 
+        private void DrawPreviewHeader()
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Preview", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            SerializedProperty density = so.FindProperty("previewDensity");
+            density.enumValueIndex = EditorGUILayout.Popup(density.enumValueIndex, density.enumDisplayNames, GUILayout.Width(80f));
+            GUILayout.Space(8f);
+            DrawHeaderToggle("showSafeZone", "Show safe zone");
+            GUILayout.Space(8f);
+            DrawHeaderToggle("showGrid", "Show grid");
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawHeaderToggle(string property, string label)
+        {
+            SerializedProperty p = so.FindProperty(property);
+            p.boolValue = EditorGUILayout.ToggleLeft(label, p.boolValue, GUILayout.Width(EditorStyles.label.CalcSize(new GUIContent(label)).x + 22f));
+        }
+
         private void DrawPreviewPane()
         {
-            GUILayout.Label("3. Live Preview", EditorStyles.boldLabel);
             if (!previews.HasSource)
-                EditorGUILayout.HelpBox("Assign a source image to see the legacy, round and adaptive foreground previews. The adaptive background preview works without one.", MessageType.Info);
+                EditorGUILayout.HelpBox("Assign a source image to see the foreground in the previews. The background layer works without one.", MessageType.Info);
 
-            EditorGUILayout.BeginHorizontal();
-            DrawPreviewItem("Legacy square", previews.Legacy, 150, false);
-            DrawPreviewItem("Round", previews.Round, 150, false);
-            EditorGUILayout.EndHorizontal();
+            IconPreviewGrid.Draw(previews, settings, position.width - LeftPaneWidth - 40f);
 
-            EditorGUILayout.BeginHorizontal();
-            DrawPreviewItem("Adaptive foreground", previews.Foreground, 150, settings.showSafeZone);
-            DrawPreviewItem("Adaptive background", previews.Background, 150, false);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.PropertyField(so.FindProperty("showSafeZone"), new GUIContent("Show safe zone guides"));
             if (settings.showSafeZone)
-                EditorGUILayout.LabelField("Green: 66dp safe zone    Yellow: 72dp visible area", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("Green circle: 66dp safe zone    Yellow square: 72dp visible area", EditorStyles.miniLabel);
 
-            EditorGUILayout.Space(4);
-            GUILayout.Label("Combined adaptive icon (as shown by launchers)", EditorStyles.boldLabel);
-            AdaptiveMaskPreview.DrawMaskRow(previews, 112f);
-
-            EditorGUILayout.Space(4);
+            EditorGUILayout.Space(8);
             GUILayout.Label("Launcher preview", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(so.FindProperty("launcherMask"), new GUIContent("Adaptive mask"));
             LauncherPreview.Draw(previews, settings.launcherMask);
-        }
-
-        private static void DrawPreviewItem(string label, Texture2D texture, float size, bool guides)
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(size + 6));
-            Rect r = GUILayoutUtility.GetRect(size, size, GUILayout.ExpandWidth(false));
-            if (label.StartsWith("Adaptive")) AdaptiveMaskPreview.DrawLayer(r, texture, guides);
-            else IconEditorGUI.DrawTextureOnChecker(r, texture);
-            GUILayout.Label(label, EditorStyles.centeredGreyMiniLabel, GUILayout.Width(size));
-            EditorGUILayout.EndVertical();
         }
 
         // ------------------------------------------------------------------------------------------------
