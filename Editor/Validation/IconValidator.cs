@@ -17,8 +17,8 @@ namespace AndroidIconGenerator
             // --- source -----------------------------------------------------------------------------------
             if (s.sourceImage == null && s.foregroundImage == null)
             {
-                report.Error("Source image", "No icon or foreground image is assigned.",
-                    "Import or pick an Icon image and/or a Foreground image.");
+                report.Error("Source image", "No foreground image is assigned.",
+                    "Import or pick a Foreground image (and optionally a Background image).");
             }
             else if (s.sourceImage != null)
             {

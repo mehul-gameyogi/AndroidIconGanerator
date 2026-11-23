@@ -96,7 +96,7 @@ namespace AndroidIconGenerator
                 settings = IconGeneratorPreferences.LoadOrCreate();
                 UpdateOutputDirectory();
             }
-            settings.backgroundMode = BackgroundMode.Solid; // background layer UI removed: always a solid color
+            settings.backgroundMode = settings.backgroundImage != null ? BackgroundMode.Image : BackgroundMode.Solid;
             if (so == null || so.targetObject == null) so = new SerializedObject(settings);
             if (previews == null) previews = new IconPreviewRenderer();
             if (sourceSet == null) { ReloadSources(true); RefreshPreviews(); }
@@ -124,6 +124,7 @@ namespace AndroidIconGenerator
 
         private void OnSettingsChanged()
         {
+            settings.backgroundMode = settings.backgroundImage != null ? BackgroundMode.Image : BackgroundMode.Solid;
             UpdateOutputDirectory();
             ReloadSources();
             RefreshPreviews();
@@ -217,26 +218,24 @@ namespace AndroidIconGenerator
 
         private void DrawForegroundTab()
         {
-            GUILayout.Label("1. Icon image (Legacy + Round)", EditorStyles.boldLabel);
-            DrawImageSlot("Image", "sourceImage", sourceSet?.Source,
-                "Used for the legacy and round icons (and as the foreground if no foreground image is set).");
-            SerializedProperty legacyScale = so.FindProperty("legacyPlacement.scale");
-            EditorGUI.BeginChangeCheck();
-            int iconPercent = EditorGUILayout.IntSlider("Resize", Mathf.RoundToInt(legacyScale.floatValue * 100f), 1, 400);
-            if (EditorGUI.EndChangeCheck())
-            {
-                legacyScale.floatValue = iconPercent / 100f;
-                so.FindProperty("roundPlacement.scale").floatValue = iconPercent / 100f * 0.8f;
-            }
+            GUILayout.Label("Layer 1: Background", EditorStyles.boldLabel);
+            DrawImageSlot("Background", "backgroundImage", sourceSet?.BackgroundImage,
+                "Bottom layer. Adaptive background, and the base of the legacy and round icons.");
+            DrawResizeSlider("Resize", so.FindProperty("backgroundPlacement.scale"));
+            using (new EditorGUI.DisabledScope(settings.backgroundImage != null))
+                EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Color", "Used when no background image is set."));
 
             EditorGUILayout.Space(8f);
-            GUILayout.Label("2. Foreground image (Adaptive)", EditorStyles.boldLabel);
-            DrawImageSlot("Image", "foregroundImage", sourceSet?.Foreground,
-                "Used for the adaptive foreground layer. Transparent PNG recommended.");
+            GUILayout.Label("Layer 2: Foreground (overlaps background)", EditorStyles.boldLabel);
+            DrawImageSlot("Foreground", "foregroundImage", sourceSet?.Foreground,
+                "Top layer. Adaptive foreground, and drawn over the background for legacy and round icons. Transparent PNG recommended.");
             DrawResizeSlider("Resize", so.FindProperty("foregroundPlacement.scale"));
 
-            if (settings.sourceImage == null && settings.foregroundImage == null)
-                EditorGUILayout.HelpBox("Add an Icon image and a Foreground image (at least 432x432 recommended; transparent background works best for the foreground).", MessageType.Info);
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Generates: Legacy (BG + FG), Round (BG + FG), Adaptive (BG and FG separate)", EditorStyles.miniLabel);
+
+            if (settings.backgroundImage == null && settings.foregroundImage == null)
+                EditorGUILayout.HelpBox("Add a Background image and a Foreground image (at least 432x432 recommended; transparent background works best for the foreground).", MessageType.Info);
             EditorGUILayout.LabelField("All imported images are copied to " + ImportFolder, EditorStyles.miniLabel);
         }
 
@@ -273,7 +272,7 @@ namespace AndroidIconGenerator
             if (GUILayout.Button("Browse...", GUILayout.Width(75f))) Defer(BrowseSaveLocation);
             EditorGUILayout.EndHorizontal();
 
-            using (new EditorGUI.DisabledScope(settings.sourceImage == null && settings.foregroundImage == null))
+            using (new EditorGUI.DisabledScope(settings.foregroundImage == null && settings.sourceImage == null))
             {
                 if (GUILayout.Button("Generate Icons", GUILayout.Height(32))) Defer(Generate);
             }
@@ -414,7 +413,7 @@ namespace AndroidIconGenerator
             OnSettingsChanged();
         }
 
-        private void SetSourceTexture(Texture2D texture) { SetTexture("sourceImage", texture); }
+        private void SetSourceTexture(Texture2D texture) { SetTexture("foregroundImage", texture); }
 
         private void ImportImage(string property)
         {
@@ -462,7 +461,7 @@ namespace AndroidIconGenerator
             settings.roundEnabled = true;
             settings.adaptiveForegroundEnabled = true;
             settings.adaptiveBackgroundEnabled = true;
-            settings.backgroundMode = BackgroundMode.Solid;
+            settings.backgroundMode = settings.backgroundImage != null ? BackgroundMode.Image : BackgroundMode.Solid;
             ReloadSources(true);
             report = IconValidator.ValidateSettings(settings, sourceSet);
             if (report.HasErrors)

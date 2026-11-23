@@ -25,7 +25,7 @@ namespace AndroidIconGenerator
 
         public void Refresh(AndroidIconSettings s, IconSourceSet set)
         {
-            HasSource = set != null && set.IconOrForeground != null;
+            HasSource = set != null && (set.ForegroundOrSource != null || set.BackgroundImage != null);
 
             TextureUtility.UpdateTexture(ref Legacy, IconImageProcessor.RenderLegacy(s, set, LauncherPreviewSize));
             TextureUtility.UpdateTexture(ref Round, IconImageProcessor.RenderRound(s, set, LauncherPreviewSize));

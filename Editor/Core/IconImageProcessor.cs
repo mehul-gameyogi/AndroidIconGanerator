@@ -67,21 +67,32 @@ namespace AndroidIconGenerator
 
         // ---- Legacy / Round ---------------------------------------------------------------------------------
 
+        private const float LegacyForegroundBox = 0.8f;
+        private const float RoundForegroundBox = 0.7f;
+
+        /// <summary>Layer 1 (background image or solid color) with layer 2 (foreground) drawn on top.</summary>
+        private static Color[] ComposeLayers(AndroidIconSettings s, IconSourceSet set, int size, float foregroundBox)
+        {
+            if (set == null || (set.ForegroundOrSource == null && set.BackgroundImage == null)) return null;
+            Color[] canvas = NewCanvas(size);
+            FillSolid(canvas, s.backgroundColor, true);
+            if (set.BackgroundImage != null)
+                DrawImage(canvas, size, set.BackgroundImage, 1f, s.backgroundPlacement, false);
+            if (set.ForegroundOrSource != null)
+                DrawImage(canvas, size, set.ForegroundOrSource, foregroundBox, s.foregroundPlacement, false);
+            return canvas;
+        }
+
         public static ImageBuffer RenderLegacy(AndroidIconSettings s, IconSourceSet set, int size)
         {
-            if (set == null || set.IconOrForeground == null) return null;
-            Color[] canvas = NewCanvas(size);
-            if (s.legacyUseBackground) FillSolid(canvas, s.legacyBackgroundColor);
-            DrawImage(canvas, size, set.IconOrForeground, 1f, s.legacyPlacement, false);
-            return ToBuffer(canvas, size);
+            Color[] canvas = ComposeLayers(s, set, size, LegacyForegroundBox);
+            return canvas == null ? null : ToBuffer(canvas, size);
         }
 
         public static ImageBuffer RenderRound(AndroidIconSettings s, IconSourceSet set, int size)
         {
-            if (set == null || set.IconOrForeground == null) return null;
-            Color[] canvas = NewCanvas(size);
-            if (s.roundUseBackground) FillSolid(canvas, s.roundBackgroundColor);
-            DrawImage(canvas, size, set.IconOrForeground, 1f, s.roundPlacement, false);
+            Color[] canvas = ComposeLayers(s, set, size, RoundForegroundBox);
+            if (canvas == null) return null;
             IconCropper.ApplyMask(canvas, size, MaskShape.Circle, 0.5f);
             return ToBuffer(canvas, size);
         }
