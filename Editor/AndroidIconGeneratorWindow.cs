@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -13,8 +13,6 @@ namespace AndroidIconGenerator
     public sealed class AndroidIconGeneratorWindow : EditorWindow
     {
         private const float LeftPaneWidth = 430f;
-        private static readonly string[] TabNames = { "Foreground Layer", "Background Layer", "Options" };
-        private static readonly string[] BackgroundModeNames = { "Color", "Gradient", "Image" };
         private static readonly string[] YesNo = { "Yes", "No" };
         private const string ImportFolder = "Assets/AndroidIconSource";
 
@@ -98,6 +96,7 @@ namespace AndroidIconGenerator
                 settings = IconGeneratorPreferences.LoadOrCreate();
                 UpdateOutputDirectory();
             }
+            settings.backgroundMode = BackgroundMode.Solid; // background layer UI removed: always a solid color
             if (so == null || so.targetObject == null) so = new SerializedObject(settings);
             if (previews == null) previews = new IconPreviewRenderer();
             if (sourceSet == null) { ReloadSources(true); RefreshPreviews(); }
@@ -211,91 +210,34 @@ namespace AndroidIconGenerator
 
         private void DrawTabs()
         {
-            SerializedProperty tab = so.FindProperty("activeTab");
-            int selected = GUILayout.Toolbar(tab.enumValueIndex, TabNames, GUILayout.Height(24f));
-            if (selected != tab.enumValueIndex) tab.enumValueIndex = selected;
-
-            EditorGUILayout.Space(6f);
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            switch (settings.activeTab)
-            {
-                case LayerTab.Foreground: DrawForegroundTab(); break;
-                case LayerTab.Background: DrawBackgroundTab(); break;
-                default: DrawOptionsTab(); break;
-            }
+            DrawForegroundTab();
             EditorGUILayout.EndVertical();
         }
 
         private void DrawForegroundTab()
         {
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.TextField("Layer name", "ic_launcher_foreground");
-
-            GUILayout.Label("Source Images", EditorStyles.boldLabel);
-            DrawImageSlot("1. Icon image", "sourceImage", sourceSet?.Source,
+            GUILayout.Label("1. Icon image (Legacy + Round)", EditorStyles.boldLabel);
+            DrawImageSlot("Image", "sourceImage", sourceSet?.Source,
                 "Used for the legacy and round icons (and as the foreground if no foreground image is set).");
-            DrawImageSlot("2. Foreground image", "foregroundImage", sourceSet?.Foreground,
+            SerializedProperty legacyScale = so.FindProperty("legacyPlacement.scale");
+            EditorGUI.BeginChangeCheck();
+            int iconPercent = EditorGUILayout.IntSlider("Resize", Mathf.RoundToInt(legacyScale.floatValue * 100f), 1, 400);
+            if (EditorGUI.EndChangeCheck())
+            {
+                legacyScale.floatValue = iconPercent / 100f;
+                so.FindProperty("roundPlacement.scale").floatValue = iconPercent / 100f * 0.8f;
+            }
+
+            EditorGUILayout.Space(8f);
+            GUILayout.Label("2. Foreground image (Adaptive)", EditorStyles.boldLabel);
+            DrawImageSlot("Image", "foregroundImage", sourceSet?.Foreground,
                 "Used for the adaptive foreground layer. Transparent PNG recommended.");
+            DrawResizeSlider("Resize", so.FindProperty("foregroundPlacement.scale"));
 
             if (settings.sourceImage == null && settings.foregroundImage == null)
                 EditorGUILayout.HelpBox("Add an Icon image and a Foreground image (at least 432x432 recommended; transparent background works best for the foreground).", MessageType.Info);
             EditorGUILayout.LabelField("All imported images are copied to " + ImportFolder, EditorStyles.miniLabel);
-
-            EditorGUILayout.Space(4f);
-            GUILayout.Label("Scaling", EditorStyles.boldLabel);
-            DrawYesNo("Trim", so.FindProperty("foregroundTrim"));
-            DrawResizeSlider("Resize", so.FindProperty("foregroundPlacement.scale"));
-        }
-
-        private void DrawBackgroundTab()
-        {
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.TextField("Layer name", "ic_launcher_background");
-
-            GUILayout.Label("Source Asset", EditorStyles.boldLabel);
-            SerializedProperty mode = so.FindProperty("backgroundMode");
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.PrefixLabel("Asset type");
-            int selected = GUILayout.Toolbar(mode.enumValueIndex, BackgroundModeNames);
-            if (selected != mode.enumValueIndex) mode.enumValueIndex = selected;
-            EditorGUILayout.EndHorizontal();
-
-            switch (settings.backgroundMode)
-            {
-                case BackgroundMode.Gradient:
-                    EditorGUILayout.PropertyField(so.FindProperty("gradientColorA"), new GUIContent("Start color"));
-                    EditorGUILayout.PropertyField(so.FindProperty("gradientColorB"), new GUIContent("End color"));
-                    SerializedProperty angle = so.FindProperty("gradientAngle");
-                    angle.floatValue = EditorGUILayout.Slider("Angle", angle.floatValue, 0f, 360f);
-                    break;
-                case BackgroundMode.Image:
-                    DrawImageSlot("Background image", "backgroundImage", sourceSet?.BackgroundImage,
-                        "Image used for the adaptive background layer.");
-                    EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Fallback color"));
-                    EditorGUILayout.Space(4f);
-                    GUILayout.Label("Scaling", EditorStyles.boldLabel);
-                    DrawResizeSlider("Resize", so.FindProperty("backgroundPlacement.scale"));
-                    break;
-                default:
-                    EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Color"));
-                    break;
-            }
-        }
-
-        private void DrawOptionsTab()
-        {
-            GUILayout.Label("Legacy Icon (API 25 and below)", EditorStyles.boldLabel);
-            DrawResizeSlider("Resize", so.FindProperty("legacyPlacement.scale"));
-            EditorGUILayout.PropertyField(so.FindProperty("legacyUseBackground"), new GUIContent("Fill background"));
-            if (settings.legacyUseBackground)
-                EditorGUILayout.PropertyField(so.FindProperty("legacyBackgroundColor"), new GUIContent("Background color"));
-
-            EditorGUILayout.Space(6f);
-            GUILayout.Label("Round Icon", EditorStyles.boldLabel);
-            DrawResizeSlider("Resize", so.FindProperty("roundPlacement.scale"));
-            EditorGUILayout.PropertyField(so.FindProperty("roundUseBackground"), new GUIContent("Fill background"));
-            if (settings.roundUseBackground)
-                EditorGUILayout.PropertyField(so.FindProperty("roundBackgroundColor"), new GUIContent("Background color"));
         }
 
         /// <summary>Resize slider shown as a percentage (100% = default fit), stored as a 0..4 scale factor.</summary>
@@ -520,6 +462,7 @@ namespace AndroidIconGenerator
             settings.roundEnabled = true;
             settings.adaptiveForegroundEnabled = true;
             settings.adaptiveBackgroundEnabled = true;
+            settings.backgroundMode = BackgroundMode.Solid;
             ReloadSources(true);
             report = IconValidator.ValidateSettings(settings, sourceSet);
             if (report.HasErrors)
