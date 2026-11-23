@@ -15,12 +15,12 @@ namespace AndroidIconGenerator
             var report = new ValidationReport();
 
             // --- source -----------------------------------------------------------------------------------
-            if (s.sourceImage == null)
+            if (s.sourceImage == null && s.foregroundImage == null)
             {
-                report.Error("Source image", "No source image is assigned.",
-                    "Use 'Import Image' or drag a PNG/JPG texture into the Source Image field.");
+                report.Error("Source image", "No icon or foreground image is assigned.",
+                    "Import or pick an Icon image and/or a Foreground image.");
             }
-            else
+            else if (s.sourceImage != null)
             {
                 string path = AssetDatabase.GetAssetPath(s.sourceImage);
                 if (!TextureUtility.IsSupportedExtension(path))

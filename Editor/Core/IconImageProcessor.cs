@@ -69,19 +69,19 @@ namespace AndroidIconGenerator
 
         public static ImageBuffer RenderLegacy(AndroidIconSettings s, IconSourceSet set, int size)
         {
-            if (set == null || set.Source == null) return null;
+            if (set == null || set.IconOrForeground == null) return null;
             Color[] canvas = NewCanvas(size);
             if (s.legacyUseBackground) FillSolid(canvas, s.legacyBackgroundColor);
-            DrawImage(canvas, size, set.Source, 1f, s.legacyPlacement, false);
+            DrawImage(canvas, size, set.IconOrForeground, 1f, s.legacyPlacement, false);
             return ToBuffer(canvas, size);
         }
 
         public static ImageBuffer RenderRound(AndroidIconSettings s, IconSourceSet set, int size)
         {
-            if (set == null || set.Source == null) return null;
+            if (set == null || set.IconOrForeground == null) return null;
             Color[] canvas = NewCanvas(size);
             if (s.roundUseBackground) FillSolid(canvas, s.roundBackgroundColor);
-            DrawImage(canvas, size, set.Source, 1f, s.roundPlacement, false);
+            DrawImage(canvas, size, set.IconOrForeground, 1f, s.roundPlacement, false);
             IconCropper.ApplyMask(canvas, size, MaskShape.Circle, 0.5f);
             return ToBuffer(canvas, size);
         }

@@ -157,6 +157,7 @@ namespace AndroidIconGenerator
         {
             EnsureReady();
             so.Update();
+            HandleObjectPicker();
 
             DrawToolbar();
 
@@ -230,30 +231,15 @@ namespace AndroidIconGenerator
             using (new EditorGUI.DisabledScope(true))
                 EditorGUILayout.TextField("Layer name", "ic_launcher_foreground");
 
-            GUILayout.Label("Source Asset", EditorStyles.boldLabel);
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.Popup("Asset type", 0, new[] { "Image" });
+            GUILayout.Label("Source Images", EditorStyles.boldLabel);
+            DrawImageSlot("1. Icon image", "sourceImage", sourceSet?.Source,
+                "Used for the legacy and round icons (and as the foreground if no foreground image is set).");
+            DrawImageSlot("2. Foreground image", "foregroundImage", sourceSet?.Foreground,
+                "Used for the adaptive foreground layer. Transparent PNG recommended.");
 
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.PropertyField(so.FindProperty("sourceImage"), new GUIContent("Path", "PNG or JPG texture used for every icon."));
-            if (GUILayout.Button(EditorGUIUtility.IconContent("Folder Icon"), GUILayout.Width(28f), GUILayout.Height(18f)))
-                Defer(ImportSourceImage);
-            using (new EditorGUI.DisabledScope(settings.sourceImage == null))
-                if (GUILayout.Button("Clear", GUILayout.Width(48f))) Defer(ClearSource);
-            EditorGUILayout.EndHorizontal();
-
-            if (sourceSet != null && sourceSet.Source != null)
-            {
-                string path = AssetDatabase.GetAssetPath(settings.sourceImage);
-                EditorGUILayout.LabelField(
-                    sourceSet.Source.Width + " x " + sourceSet.Source.Height + " px, " + TextureUtility.FormatName(path)
-                    + (sourceSet.Source.Level0.HasTransparency() ? ", transparent" : ", opaque"),
-                    EditorStyles.miniLabel);
-            }
-            else if (settings.sourceImage == null)
-            {
-                EditorGUILayout.HelpBox("Assign or import a PNG/JPG image (at least 432x432 recommended; transparent background works best).", MessageType.Info);
-            }
+            if (settings.sourceImage == null && settings.foregroundImage == null)
+                EditorGUILayout.HelpBox("Add an Icon image and a Foreground image (at least 432x432 recommended; transparent background works best for the foreground).", MessageType.Info);
+            EditorGUILayout.LabelField("All imported images are copied to " + ImportFolder, EditorStyles.miniLabel);
 
             EditorGUILayout.Space(4f);
             GUILayout.Label("Scaling", EditorStyles.boldLabel);
@@ -283,7 +269,8 @@ namespace AndroidIconGenerator
                     angle.floatValue = EditorGUILayout.Slider("Angle", angle.floatValue, 0f, 360f);
                     break;
                 case BackgroundMode.Image:
-                    EditorGUILayout.PropertyField(so.FindProperty("backgroundImage"), new GUIContent("Path"));
+                    DrawImageSlot("Background image", "backgroundImage", sourceSet?.BackgroundImage,
+                        "Image used for the adaptive background layer.");
                     EditorGUILayout.PropertyField(so.FindProperty("backgroundColor"), new GUIContent("Fallback color"));
                     EditorGUILayout.Space(4f);
                     GUILayout.Label("Scaling", EditorStyles.boldLabel);
@@ -344,7 +331,7 @@ namespace AndroidIconGenerator
             if (GUILayout.Button("Browse...", GUILayout.Width(75f))) Defer(BrowseSaveLocation);
             EditorGUILayout.EndHorizontal();
 
-            using (new EditorGUI.DisabledScope(settings.sourceImage == null))
+            using (new EditorGUI.DisabledScope(settings.sourceImage == null && settings.foregroundImage == null))
             {
                 if (GUILayout.Button("Generate Icons", GUILayout.Height(32))) Defer(Generate);
             }
@@ -431,23 +418,63 @@ namespace AndroidIconGenerator
         // Actions
         // ------------------------------------------------------------------------------------------------
 
-        private void ClearSource()
+        private int pickerId;
+        private string pickerProperty;
+
+        /// <summary>One image slot: object field + Browse (file, copied into the single import folder) + Assets picker + Clear.</summary>
+        private void DrawImageSlot(string label, string property, ImagePyramid loaded, string tooltip)
         {
-            Undo.RecordObject(settings, "Clear Source Image");
-            settings.sourceImage = null;
+            SerializedProperty prop = so.FindProperty(property);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PropertyField(prop, new GUIContent(label, tooltip));
+            if (GUILayout.Button(new GUIContent("Browse", "Import a PNG/JPG from disk into " + ImportFolder), GUILayout.Width(56f)))
+                Defer(() => ImportImage(property));
+            if (GUILayout.Button(new GUIContent("Assets", "Pick an image from the project's Assets folder"), GUILayout.Width(52f)))
+            {
+                pickerProperty = property;
+                pickerId = GUIUtility.GetControlID(FocusType.Passive) + 7000;
+                EditorGUIUtility.ShowObjectPicker<Texture2D>(prop.objectReferenceValue, false, string.Empty, pickerId);
+            }
+            using (new EditorGUI.DisabledScope(prop.objectReferenceValue == null))
+                if (GUILayout.Button("Clear", GUILayout.Width(44f))) prop.objectReferenceValue = null;
+            EditorGUILayout.EndHorizontal();
+
+            if (loaded != null && prop.objectReferenceValue != null)
+            {
+                string path = AssetDatabase.GetAssetPath(prop.objectReferenceValue);
+                EditorGUILayout.LabelField(
+                    "    " + loaded.Width + " x " + loaded.Height + " px, " + TextureUtility.FormatName(path)
+                    + (loaded.Level0.HasTransparency() ? ", transparent" : ", opaque"),
+                    EditorStyles.miniLabel);
+            }
+        }
+
+        private void HandleObjectPicker()
+        {
+            Event e = Event.current;
+            if (e.type != EventType.ExecuteCommand || pickerProperty == null) return;
+            if (EditorGUIUtility.GetObjectPickerControlID() != pickerId) return;
+            if (e.commandName == "ObjectSelectorUpdated" || e.commandName == "ObjectSelectorClosed")
+            {
+                var tex = EditorGUIUtility.GetObjectPickerObject() as Texture2D;
+                if (tex != null) so.FindProperty(pickerProperty).objectReferenceValue = tex;
+                if (e.commandName == "ObjectSelectorClosed") pickerProperty = null;
+                e.Use();
+            }
+        }
+
+        private void SetTexture(string property, Texture2D texture)
+        {
+            Undo.RecordObject(settings, "Set Image");
             so.Update();
+            so.FindProperty(property).objectReferenceValue = texture;
+            so.ApplyModifiedProperties();
             OnSettingsChanged();
         }
 
-        private void SetSourceTexture(Texture2D texture)
-        {
-            Undo.RecordObject(settings, "Set Source Image");
-            settings.sourceImage = texture;
-            so.Update();
-            OnSettingsChanged();
-        }
+        private void SetSourceTexture(Texture2D texture) { SetTexture("sourceImage", texture); }
 
-        private void ImportSourceImage()
+        private void ImportImage(string property)
         {
             string file = EditorUtility.OpenFilePanelWithFilters("Select source image", string.Empty,
                 new[] { "Images (PNG, JPG)", "png,jpg,jpeg", "All files", "*" });
@@ -459,10 +486,12 @@ namespace AndroidIconGenerator
                 return;
             }
 
+            // Every imported image lives in the single ImportFolder.
             string assetPath;
-            if (IconFolderManager.IsInsideProjectAssets(file))
+            string normalized = IconFolderManager.NormalizeOutputDirectory(file);
+            if (IconFolderManager.IsInsideProjectAssets(file) && normalized.StartsWith(ImportFolder + "/", StringComparison.Ordinal))
             {
-                assetPath = IconFolderManager.NormalizeOutputDirectory(file);
+                assetPath = normalized;
             }
             else
             {
@@ -480,7 +509,7 @@ namespace AndroidIconGenerator
                     "Make sure the file is a valid PNG/JPG.");
                 return;
             }
-            SetSourceTexture(texture);
+            SetTexture(property, texture);
         }
 
         private void Generate()

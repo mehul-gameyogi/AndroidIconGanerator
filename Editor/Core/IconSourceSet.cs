@@ -13,6 +13,8 @@ namespace AndroidIconGenerator
         public string Key = string.Empty;
 
         public ImagePyramid ForegroundOrSource => Foreground ?? Source;
+        /// <summary>Image used for legacy/round icons: the icon image, or the foreground when no icon image is set.</summary>
+        public ImagePyramid IconOrForeground => Source ?? Foreground;
         public bool HasForegroundOverride => Foreground != null;
 
         /// <summary>Cheap identity of the assigned images (paths + content hashes) to detect when a reload is needed.</summary>
