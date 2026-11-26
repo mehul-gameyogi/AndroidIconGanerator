@@ -6,7 +6,7 @@ namespace AndroidIconGenerator
 {
     /// <summary>
     /// Image Asset Studio style preview: every adaptive mask shape, the full bleed layers and the legacy / round
-    /// icons as a wrapping grid of tiles. Tile size follows the selected preview density.
+    /// icons as a wrapping grid of tiles. Tiles are always sized for xxxhdpi.
     /// </summary>
     public static class IconPreviewGrid
     {
@@ -24,7 +24,7 @@ namespace AndroidIconGenerator
 
         public static void Draw(IconPreviewRenderer previews, AndroidIconSettings s, float availableWidth)
         {
-            float scale = IconSpecs.Scale(s.previewDensity);
+            float scale = IconSpecs.Scale(IconSpecs.BestFitDensity);
             var tiles = new List<Tile>
             {
                 new Tile { Label = "Circle", Texture = previews.GetCombined(MaskShape.Circle), Dp = IconSpecs.AdaptiveVisibleDp, Adaptive = true },

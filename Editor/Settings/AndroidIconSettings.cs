@@ -83,7 +83,6 @@ namespace AndroidIconGenerator
         // Preview-only UI state
         public bool showSafeZone = true;
         public bool showGrid;
-        public AndroidDensity previewDensity = AndroidDensity.Xhdpi;
         public LayerTab activeTab = LayerTab.Foreground;
         public MaskShape launcherMask = MaskShape.Circle;
 

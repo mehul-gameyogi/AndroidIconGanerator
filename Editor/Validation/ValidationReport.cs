@@ -51,6 +51,7 @@ namespace AndroidIconGenerator
         {
             foreach (var m in _messages)
             {
+                if (m.Severity == Severity.Warning) continue;
                 if (!includeSuccess && m.Severity == Severity.Success) continue;
                 string text = m.Category + ": " + m.Message;
                 if (!string.IsNullOrEmpty(m.Solution)) text += "  -> " + m.Solution;

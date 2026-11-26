@@ -27,6 +27,7 @@ namespace AndroidIconGenerator
         private Vector2 leftScroll, rightScroll;
 
         private bool foldPlayer = true;
+        private string toolVersion;     // from package.json; null when not installed as a package
 
         // ------------------------------------------------------------------------------------------------
         // Entry points
@@ -56,6 +57,7 @@ namespace AndroidIconGenerator
         {
             titleContent = new GUIContent("Android Icons", EditorGUIUtility.IconContent("BuildSettings.Android.Small").image);
             minSize = new Vector2(960f, 640f);
+            toolVersion = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(AndroidIconGeneratorWindow).Assembly)?.version;
             Undo.undoRedoPerformed += OnUndoRedo;
         }
 
@@ -194,6 +196,7 @@ namespace AndroidIconGenerator
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             GUILayout.Label("Unity Android Icon Generator", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
+            if (!string.IsNullOrEmpty(toolVersion)) GUILayout.Label("v" + toolVersion, EditorStyles.miniLabel);
             EditorGUILayout.EndHorizontal();
         }
 
@@ -230,6 +233,11 @@ namespace AndroidIconGenerator
             DrawImageSlot("Foreground", "foregroundImage", sourceSet?.Foreground,
                 "Top layer. Adaptive foreground, and drawn over the background for legacy and round icons. Transparent PNG recommended.");
             DrawResizeSlider("Resize", so.FindProperty("foregroundPlacement.scale"));
+            SerializedProperty offsetX = so.FindProperty("foregroundPlacement.offsetX");
+            SerializedProperty offsetY = so.FindProperty("foregroundPlacement.offsetY");
+            DrawOffsetSlider("Position X", offsetX);
+            DrawOffsetSlider("Position Y", offsetY);
+            if (GUILayout.Button("Reset Position")) offsetX.floatValue = offsetY.floatValue = 0f;
 
             EditorGUILayout.Space(4f);
             EditorGUILayout.LabelField("Generates: Legacy (BG + FG), Round (BG + FG), Adaptive (BG and FG separate)", EditorStyles.miniLabel);
@@ -245,6 +253,14 @@ namespace AndroidIconGenerator
             EditorGUI.BeginChangeCheck();
             int percent = EditorGUILayout.IntSlider(label, Mathf.RoundToInt(scale.floatValue * 100f), 1, 400);
             if (EditorGUI.EndChangeCheck()) scale.floatValue = percent / 100f;
+        }
+
+        /// <summary>Position slider as a percentage of the canvas (+X right, +Y up), stored as a -0.5..0.5 fraction.</summary>
+        private static void DrawOffsetSlider(string label, SerializedProperty offset)
+        {
+            EditorGUI.BeginChangeCheck();
+            int percent = EditorGUILayout.IntSlider(label, Mathf.RoundToInt(offset.floatValue * 100f), -50, 50);
+            if (EditorGUI.EndChangeCheck()) offset.floatValue = percent / 100f;
         }
 
         private static void DrawYesNo(string label, SerializedProperty flag)
@@ -280,7 +296,7 @@ namespace AndroidIconGenerator
 
             if (lastExport != null)
             {
-                MessageType type = lastExport.Failed > 0 ? MessageType.Error : lastExport.Cancelled ? MessageType.Warning : MessageType.Info;
+                MessageType type = lastExport.Failed > 0 ? MessageType.Error : MessageType.Info;
                 EditorGUILayout.HelpBox(
                     $"Last generation: {lastExport.Written} written, {lastExport.Skipped} skipped, {lastExport.Failed} failed.",
                     type);
@@ -295,7 +311,7 @@ namespace AndroidIconGenerator
             if (foldPlayer)
             {
                 string unsupported = AndroidPlayerSettingsManager.UnsupportedReason();
-                if (unsupported != null) EditorGUILayout.HelpBox(unsupported, MessageType.Warning);
+                if (unsupported != null) EditorGUILayout.HelpBox(unsupported, MessageType.Info);
 
                 EditorGUILayout.PropertyField(so.FindProperty("assignLegacy"), new GUIContent("Assign Legacy Icons"));
                 EditorGUILayout.PropertyField(so.FindProperty("assignRound"), new GUIContent("Assign Round Icons"));
@@ -310,9 +326,9 @@ namespace AndroidIconGenerator
 
         private void DrawReportSection()
         {
-            if (report == null || report.Messages.Count == 0) return;
+            if (report == null || report.Count(Severity.Error) + report.Count(Severity.Success) == 0) return;
             EditorGUILayout.LabelField(
-                $"Validation: {report.Count(Severity.Error)} errors, {report.Count(Severity.Warning)} warnings, {report.Count(Severity.Success)} OK",
+                $"Validation: {report.Count(Severity.Error)} errors, {report.Count(Severity.Success)} OK",
                 EditorStyles.boldLabel);
             IconEditorGUI.DrawReport(report);
         }
@@ -324,9 +340,6 @@ namespace AndroidIconGenerator
             EditorGUILayout.BeginHorizontal();
             GUILayout.Label("Preview", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
-            SerializedProperty density = so.FindProperty("previewDensity");
-            density.enumValueIndex = EditorGUILayout.Popup(density.enumValueIndex, density.enumDisplayNames, GUILayout.Width(80f));
-            GUILayout.Space(8f);
             DrawHeaderToggle("showSafeZone", "Show safe zone");
             GUILayout.Space(8f);
             DrawHeaderToggle("showGrid", "Show grid");

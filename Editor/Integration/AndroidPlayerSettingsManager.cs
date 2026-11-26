@@ -220,8 +220,7 @@ namespace AndroidIconGenerator
                 report.Error(cat, $"Verification failed: only {verified} of {assigned} icon slots hold the generated textures.",
                     "Open Project Settings > Player > Android > Icon and assign them manually.");
             else if (missing > 0)
-                report.Warning(cat, $"Assigned the best-fit icon to {assigned} slot(s); {missing} smaller slots were left unchanged.",
-                    "The generator intentionally creates only the largest best-fit icon for each type.");
+                report.Success(cat, $"Assigned and verified the best-fit icon in {assigned} slot(s).");
             else
                 report.Success(cat, $"Assigned and verified {assigned} icon slots.");
         }

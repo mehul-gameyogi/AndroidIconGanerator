@@ -1,7 +1,7 @@
 {
   "name": "com.tools.android-icon-generator",
   "displayName": "Unity Android Icon Generator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unity": "6000.0",
   "description": "A professional Unity Editor extension for generating, customizing, previewing, exporting and automatically assigning Android application icons.",
   "documentationUrl": "https://github.com/mehul-gameyogi/AndroidIconGanerator#readme",

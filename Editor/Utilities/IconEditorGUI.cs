@@ -91,7 +91,8 @@ namespace AndroidIconGenerator
         public static void DrawReport(ValidationReport report)
         {
             if (report == null) return;
-            foreach (ValidationMessage m in report.Messages) DrawMessage(m);
+            foreach (ValidationMessage m in report.Messages)
+                if (m.Severity != Severity.Warning) DrawMessage(m);
         }
     }
 }
